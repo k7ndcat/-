@@ -1,92 +1,119 @@
-import pygame
 import sys
+import pygame
+import pprint
 
-# Инициализация Pygame
-pygame.init()
+COLOR = [(0, 0, 0), 'green']
 
-# Константы
-WIDTH, HEIGHT = 500, 500
-PLATFORM_SIZE = (50, 10)
-PLAYER_SIZE = (20, 20)
-PLAYER_SPEED = 50
-PLAYER_MOVE = 10
 
-# Цвета
-WHITE = (255, 255, 255)
-GRAY = (128, 128, 128)
-BLUE = (0, 0, 255)
+class Board:
+    def __init__(self, rows, columns, size_rect):
+        self.size_rect = size_rect
+        self.rows = min(rows, (size[1] - self.size_rect - self.size_rect) // self.size_rect)
+        self.columns = min(columns, (size[0] - self.size_rect - self.size_rect) // self.size_rect)
+        self.mas = [[0 for i in range(self.columns)] for j in range(self.rows)]
+        self.padding = size_rect
+        self.next = [[0 for i in range(self.columns)] for j in range(self.rows)]
 
-class GameObject:
-    def __init__(self, x, y, width, height, color):
-        self.rect = pygame.Rect(x, y, width, height)
-        self.color = color
+    def get(self):
+        return self.columns, self.rows
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, self.color, self.rect)
+    def update(self, coords):
+        col, row = coords
+        self.mas[row][col] = (self.mas[row][col] + 1) % 2
+        color = COLOR[self.mas[row][col]]
+        pygame.draw.rect(screen, color,
+                         (self.padding + row * size_rect, self.padding + col * size_rect, size_rect, size_rect))
+        pygame.draw.rect(screen, ('WHITE'),
+                         (self.padding + row * size_rect, self.padding + col * size_rect, size_rect, size_rect), 1)
+        pprint.pprint(self.mas)
 
-class Platform(GameObject):
-    def __init__(self, x, y):
-        super().__init__(x, y, *PLATFORM_SIZE, GRAY)
+    def count(self, col, row):
+        c = 0
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                if self.mas[(row + i) % self.rows][(col + j) % self.columns] == 1:
+                    c += 1
+        return c
 
-class Player(GameObject):
-    def __init__(self, x, y):
-        super().__init__(x, y, *PLAYER_SIZE, BLUE)
-        self.speed_y = 0
+    def next_move(self):
+        for col in range(self.columns):
+            for row in range(self.rows):
+                neighbors = self.count(col, row)
+                if self.mas[row][col] == 1:
+                    if neighbors < 2 or neighbors > 3:
+                        self.next[row][col] = 0
+                    else:
+                        self.next[row][col] = 1
+                else:
+                    if neighbors == 3:
+                        self.next[row][col] = 1
+                    else:
+                        self.next[row][col] = 0
+        self.mas = [row[:] for row in self.next]
+        self.next = [[0 for i in range(self.columns)] for j in range(self.rows)]
 
-    def update(self, platforms):
-        self.speed_y += 1
-        self.rect.y += self.speed_y / 60  # Ускорение падения
+    def render(self, surface):
+        surface.fill((0, 0, 0))
 
-        for platform in platforms:
-            if self.rect.colliderect(platform.rect):
-                self.rect.bottom = platform.rect.top
-                self.speed_y = 0
+        for col in range(self.columns):
+            for row in range(self.rows):
+                color = COLOR[self.mas[row][col]]
+                pygame.draw.rect(surface, color,
+                                 (self.size_rect + col * self.size_rect,
+                                  self.size_rect + row * self.size_rect,
+                                  self.size_rect,
+                                  self.size_rect))
+                pygame.draw.rect(surface, 'White',
+                                 (self.size_rect + col * self.size_rect,
+                                  self.size_rect + row * self.size_rect,
+                                  self.size_rect,
+                                  self.size_rect),
+                                 1)
 
-    def move(self, dx):
-        self.rect.x += dx
 
-def main():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption('Инициализация игры')
+    size = (800, 600)
+    speed = 20
+    size_rect = 25
+    screen = pygame.display.set_mode(size)
     clock = pygame.time.Clock()
-
-    platforms = []
-    player = None
-
+    start = 0
+    board = Board(100, 100, size_rect)
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    start = 1 - start
+
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    platforms.append(Platform(event.pos[0], event.pos[1]))
-                elif event.button == 3:
-                    if player:
-                        player.rect.topleft = event.pos
+                    x1, y1 = event.pos
+                    if (size_rect <= x1 <= (board.get()[0] * size_rect + size_rect)) and (
+                            size_rect <= y1 <= (board.get()[1] * size_rect + size_rect)):
+                        board.update(((x1 - size_rect) // size_rect, (y1 - size_rect) // size_rect))
                     else:
-                        player = Player(event.pos[0], event.pos[1])
+                        print(None)
+                elif event.button == 3:
+                    start = 1 - start
+                elif event.button == 4:
+                    speed = min(60, speed + 5)
+                elif event.button == 5:
+                    speed = max(1, speed - 5)
 
-            elif event.type == pygame.KEYDOWN:
-                if player:
-                    if event.key == pygame.K_LEFT:
-                        player.move(-PLAYER_MOVE)
-                    elif event.key == pygame.K_RIGHT:
-                        player.move(PLAYER_MOVE)
+        if start:
+            board.next_move()
 
         screen.fill((0, 0, 0))
-
-        for platform in platforms:
-            platform.draw(screen)
-
-        if player:
-            player.update(platforms)
-            player.draw(screen)
-
+        board.render(screen)
         pygame.display.flip()
-        clock.tick(60)
-
-    pygame.quit()
-    sys.exit()
-
-if __name__ == "__main__":
-    main()
+        clock.tick(speed)
