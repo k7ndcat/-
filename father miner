@@ -1,0 +1,107 @@
+import sys
+import pygame
+import pprint
+from random import randint
+
+COLOR = [(0, 0, 0), 'red']
+
+
+class Board:
+    def __init__(self, rows, columns, size_rect):
+        self.size_rect = size_rect
+        self.rows = min(rows, (size[1] - self.size_rect - self.size_rect) // self.size_rect)
+        self.columns = min(columns, (size[0] - self.size_rect - self.size_rect) // self.size_rect)
+        self.mas = [[-2 for i in range(self.columns)] for j in range(self.rows)]
+        self.padding = size_rect
+        self.next = [[-2 for i in range(self.columns)] for j in range(self.rows)]
+        self.make_bomb(10)
+
+    def get(self):
+        return self.columns, self.rows
+
+    def open_cell(self, col, row):
+        c = 0
+        if self.mas[row][col] == -2:
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if i == 0 and j == 0:
+                        continue
+                    if 0 <= row + i < self.rows and 0 <= col + j < self.columns:
+                        if self.mas[row + i][col + j] == -1:
+                            c += 1
+            self.mas[row][col] = c
+        else:
+            return
+        if c == 0:
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if i == 0 and j == 0:
+                        continue
+                    if 0 <= row + i < self.rows and 0 <= col + j < self.columns:
+                        self.open_cell(col + j, row + i)
+
+    def make_bomb(self, n):
+        c = 0
+        while c < n:
+            a, b = randint(0, self.columns - 1), randint(0, self.rows - 1)
+            if self.mas[b][a] != -1:
+                self.mas[b][a] = -1
+                c += 1
+
+    def render(self, surface):
+        surface.fill((0, 0, 0))
+        for col in range(self.columns):
+            for row in range(self.rows):
+                if self.mas[row][col] < 0:
+                    color = COLOR[self.mas[row][col]]
+                    pygame.draw.rect(surface, color,
+                                     (self.size_rect + col * self.size_rect,
+                                      self.size_rect + row * self.size_rect,
+                                      self.size_rect,
+                                      self.size_rect))
+                else:
+                    neighbour = self.mas[row][col]
+                    color = 'green'
+                    font = pygame.font.SysFont('Arial', 15)
+                    text = font.render(str(neighbour), True, color)
+                    screen.blit(text, (self.padding + col * size_rect, self.padding + row * size_rect))
+
+                pygame.draw.rect(surface, 'White',
+                                 (self.size_rect + col * self.size_rect,
+                                  self.size_rect + row * self.size_rect,
+                                  self.size_rect,
+                                  self.size_rect),
+                                 1)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption('деда сапер')
+    size = (200, 400)
+    speed = 20
+    size_rect = 25
+    screen = pygame.display.set_mode(size)
+    clock = pygame.time.Clock()
+    start = 0
+    board = Board(100, 100, size_rect)
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+                quit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    x1, y1 = event.pos
+                    if (size_rect <= x1 <= (board.get()[0] * size_rect + size_rect)) and (
+                            size_rect <= y1 <= (board.get()[1] * size_rect + size_rect)):
+                        board.open_cell((x1 - size_rect) // size_rect, (y1 - size_rect) // size_rect)
+                    else:
+                        print(None)
+
+        screen.fill((0, 0, 0))
+        board.render(screen)
+        pygame.display.flip()
+        clock.tick(speed)
