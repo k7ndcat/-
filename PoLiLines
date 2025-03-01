@@ -1,0 +1,148 @@
+import sys
+import pygame
+import pprint
+from random import randint
+
+COLOR = ["Blue", 'red']
+
+
+class Board:
+    def __init__(self, rows, columns, size_rect):
+        self.size_rect = size_rect
+        self.rows = min(rows, (size[1] - self.size_rect - self.size_rect) // self.size_rect)
+        self.columns = min(columns, (size[0] - self.size_rect - self.size_rect) // self.size_rect)
+        self.mas = [[-1 for i in range(self.columns)] for j in range(self.rows)]
+        self.padding = size_rect
+        self.next = [['' for i in range(self.columns)] for j in range(self.rows)]
+        self.flag = 0
+        self.way = []
+
+    def get(self):
+        return self.columns, self.rows
+
+    def chek(self, row, col):
+        return self.next[row][col] == ''
+
+    def find_way(self, row, col):
+        if self.next[row][col] == 0:
+            return
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                if 0 <= row + i < self.rows and 0 <= col + j < self.columns:
+                    if self.next[row + i][col + j] == int(self.next[row][col]) - 1:
+                        self.way.append((row + i, col + j))
+                        self.find_way(row + i, col + j)
+                        return
+                    else:
+                        continue
+
+    def has_path(self, x1, y1, row, col):
+        if x1 == row and y1 == col:
+            self.mas[row][col] = 0
+            self.way.append((row, col))
+            self.find_way(row, col)
+            self.next = [['' for i in range(self.columns)] for j in range(self.rows)]
+            self.flag = 0
+            return True
+
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                if 0 <= x1 + i < self.rows and 0 <= y1 + j < self.columns:
+                    if self.mas[x1 + i][y1 + j] == 0:
+                        self.next[x1 + i][y1 + j] = -1
+                    if self.chek(x1 + i, y1 + j) and not self.chek(x1, y1):
+                        self.next[x1 + i][y1 + j] = self.next[x1][y1] + 1
+                        self.has_path(x1 + i, y1 + j, row, col)
+                    else:
+                        continue
+
+
+        else:
+            return False
+
+    def open_cell(self, col, row):
+
+        if self.mas[row][col] == -1 and self.flag:
+            self.way = []
+            self.next = [['' for i in range(self.columns)] for j in range(self.rows)]
+            self.next[self.flag[0]][self.flag[1]] = 0
+            self.has_path(self.flag[0], self.flag[1], row, col)
+            self.next = [['' for i in range(self.columns)] for j in range(self.rows)]
+
+
+
+
+        elif self.mas[row][col] == -1:
+            self.mas[row][col] = 0
+            self.next[row][col] = -1
+        elif self.mas[row][col] == 1 and self.flag:
+            self.mas[row][col] = 0
+            self.next[row][col] = -1
+            self.flag = 0
+        elif not self.flag and self.mas[row][col] == 0:
+            self.flag = (row, col)
+            self.mas[row][col] = 1
+            self.next[row][col] = 0
+
+    def render(self, surface):
+        if self.way:
+            a, b = self.way.pop()
+            self.mas[a][b] = -1
+            if self.way:
+                self.mas[self.way[-1][0]][self.way[-1][1]] = 1
+            else:
+                self.mas[a][b] = 0
+
+        surface.fill((0, 0, 0))
+        for col in range(self.columns):
+            for row in range(self.rows):
+                if self.mas[row][col] != -1:
+                    color = COLOR[self.mas[row][col]]
+                    pygame.draw.circle(surface, color,
+                                       (self.size_rect + col * self.size_rect + self.size_rect / 2,
+                                        self.size_rect + row * self.size_rect + self.size_rect / 2),
+                                       self.size_rect // 2 - 1)
+
+                pygame.draw.rect(surface, 'White',
+                                 (self.size_rect + col * self.size_rect,
+                                  self.size_rect + row * self.size_rect,
+                                  self.size_rect,
+                                  self.size_rect),
+                                 1)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption('деда сапер')
+    size = (400, 400)
+    speed = 20
+    size_rect = 25
+    screen = pygame.display.set_mode(size)
+    clock = pygame.time.Clock()
+    start = 0
+    board = Board(100, 100, size_rect)
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+                quit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    x1, y1 = event.pos
+                    if (size_rect <= x1 <= (board.get()[0] * size_rect + size_rect)) and (
+                            size_rect <= y1 <= (board.get()[1] * size_rect + size_rect)):
+                        board.open_cell((x1 - size_rect) // size_rect, (y1 - size_rect) // size_rect)
+                    else:
+                        print(None)
+
+        screen.fill((0, 0, 0))
+        board.render(screen)
+        pygame.display.flip()
+        clock.tick(speed)
